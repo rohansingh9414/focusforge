@@ -51,8 +51,15 @@ class FocusForgeApplication : Application() {
         database = AppDatabase.getDatabase(this)
         walletRepository = WalletRepository(database.walletDao())
         exchangeConfigRepository = ExchangeConfigRepository(this)
-        goalRepository = GoalRepository(database.goalTemplateDao(), database.goalLogDao())
-        goalManager = GoalManager(goalRepository, walletRepository)
+        goalRepository = GoalRepository(
+            database = database,
+            goalTemplateDao = database.goalTemplateDao(),
+            goalLogDao = database.goalLogDao(),
+            goalStreakDao = database.goalStreakDao(),
+            xpLogDao = database.xpLogDao(),
+            walletDao = database.walletDao()
+        )
+        goalManager = GoalManager(goalRepository)
         rewardRepository = RewardRepository(database.rewardTemplateDao(), database.redemptionLogDao())
         rewardManager = RewardManager(rewardRepository, walletRepository, exchangeConfigRepository)
         barterManager = BarterManager(walletRepository, exchangeConfigRepository)

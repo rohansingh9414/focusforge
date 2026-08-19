@@ -48,9 +48,13 @@ class FocusSessionManagerTest {
         fakeWalletDao = FakeWalletDao()
 
         focusSessionRepository = FocusSessionRepository(fakeFocusSessionDao)
-        goalRepository = GoalRepository(fakeGoalTemplateDao, fakeGoalLogDao)
+        goalRepository = GoalRepository(
+            goalTemplateDao = fakeGoalTemplateDao,
+            goalLogDao = fakeGoalLogDao,
+            walletDao = fakeWalletDao
+        )
         walletRepository = WalletRepository(fakeWalletDao)
-        goalManager = GoalManager(goalRepository, walletRepository)
+        goalManager = GoalManager(goalRepository)
 
         fakeWalletDao.wallet = Wallet(id = 1, creditBalance = 0.0, rupeeBalance = 0.0, screenTimeMinutes = 30)
 

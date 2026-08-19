@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.rohansingh.focusforge.data.repository.WalletRepository
+import com.rohansingh.focusforge.domain.gamification.LevelCalculator
+import com.rohansingh.focusforge.domain.models.LevelInfo
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -14,6 +16,8 @@ data class HomeUiState(
     val creditBalance: Double = 0.0,
     val rupeeBalance: Double = 0.0,
     val screenTimeMinutes: Int = 0,
+    val totalXp: Long = 0L,
+    val levelInfo: LevelInfo = LevelCalculator.calculateLevel(0L),
     val isLoading: Boolean = false
 )
 
@@ -28,10 +32,13 @@ class HomeViewModel(private val walletRepository: WalletRepository) : ViewModel(
     val uiState: StateFlow<HomeUiState> = walletRepository.wallet
         .map { wallet ->
             if (wallet != null) {
+                val totalXp = wallet.totalXp
                 HomeUiState(
                     creditBalance = wallet.creditBalance,
                     rupeeBalance = wallet.rupeeBalance,
                     screenTimeMinutes = wallet.screenTimeMinutes,
+                    totalXp = totalXp,
+                    levelInfo = LevelCalculator.calculateLevel(totalXp),
                     isLoading = false
                 )
             } else {

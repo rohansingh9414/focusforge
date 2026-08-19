@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.rohansingh.focusforge.FocusForgeApplication
+import com.rohansingh.focusforge.data.entities.GoalStreak
 import com.rohansingh.focusforge.data.entities.GoalTemplate
 import com.rohansingh.focusforge.data.repository.GoalRepository
 import com.rohansingh.focusforge.domain.managers.FocusSessionManager
@@ -22,6 +23,7 @@ import kotlinx.coroutines.launch
 
 data class GoalsUiState(
     val goals: List<GoalTemplate> = emptyList(),
+    val streaks: Map<Long, GoalStreak> = emptyMap(),
     val activeFocusSession: ActiveFocusSession? = null,
     val isAddEditGoalDialogOpen: Boolean = false,
     val editingGoal: GoalTemplate? = null,
@@ -50,6 +52,7 @@ class GoalsViewModel(
 
     val uiState: StateFlow<GoalsUiState> = combine(
         goalRepository.allGoalTemplates,
+        goalRepository.allGoalStreaks,
         focusSessionManager.activeSession,
         _isAddEditGoalDialogOpen,
         _editingGoal,
@@ -59,16 +62,20 @@ class GoalsViewModel(
         _focusGoal
     ) { params ->
         val goals = params[0] as List<GoalTemplate>
-        val activeFocus = params[1] as ActiveFocusSession?
-        val isAddEditOpen = params[2] as Boolean
-        val editing = params[3] as GoalTemplate?
-        val isCompleteOpen = params[4] as Boolean
-        val completing = params[5] as GoalTemplate?
-        val isStartFocusOpen = params[6] as Boolean
-        val focusGoal = params[7] as GoalTemplate?
+        val streaksList = params[1] as List<GoalStreak>
+        val activeFocus = params[2] as ActiveFocusSession?
+        val isAddEditOpen = params[3] as Boolean
+        val editing = params[4] as GoalTemplate?
+        val isCompleteOpen = params[5] as Boolean
+        val completing = params[6] as GoalTemplate?
+        val isStartFocusOpen = params[7] as Boolean
+        val focusGoal = params[8] as GoalTemplate?
+
+        val streaksMap = streaksList.associateBy { it.goalTemplateId }
 
         GoalsUiState(
             goals = goals,
+            streaks = streaksMap,
             activeFocusSession = activeFocus,
             isAddEditGoalDialogOpen = isAddEditOpen,
             editingGoal = editing,
@@ -206,7 +213,8 @@ class GoalsViewModel(
             val result = goalManager.completeGoal(goal, amount)
             result.onSuccess { earned ->
                 if (earned > 0.0) {
-                    _snackbarMessage.emit("Earned +${String.format("%.1f", earned)} credits!")
+                    val xp = Math.round(earned * 10.0)
+                    _snackbarMessage.emit("Earned +${String.format("%.1f", earned)} credits and +$xp XP!")
                 } else {
                     _snackbarMessage.emit("Daily cap reached. 0 credits earned.")
                 }

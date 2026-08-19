@@ -1,5 +1,6 @@
 package com.rohansingh.focusforge.ui.goals
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -23,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,15 +46,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rohansingh.focusforge.data.entities.GoalStreak
 import com.rohansingh.focusforge.data.entities.GoalTemplate
 import com.rohansingh.focusforge.data.repository.GoalRepository
+import com.rohansingh.focusforge.domain.gamification.GamificationConfig
 import com.rohansingh.focusforge.domain.managers.FocusSessionManager
 import com.rohansingh.focusforge.domain.managers.GoalManager
-import kotlinx.coroutines.flow.collectLatest
+import kotlin.math.min
 
 @Composable
 fun GoalsScreen(
@@ -66,7 +72,7 @@ fun GoalsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
-        viewModel.snackbarMessage.collectLatest { message ->
+        viewModel.snackbarMessage.collect { message ->
             snackbarHostState.showSnackbar(message)
         }
     }
@@ -75,7 +81,9 @@ fun GoalsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { viewModel.openAddGoalDialog() }
+                onClick = { viewModel.openAddGoalDialog() },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Goal")
             }
@@ -86,14 +94,25 @@ fun GoalsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (uiState.goals.isEmpty() && !uiState.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+            if (uiState.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            } else if (uiState.goals.isEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "No goals configured yet.\nTap + to create your first goal.",
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = "No goals set yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Tap + to create your first goal and earn credits!",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -125,9 +144,11 @@ fun GoalsScreen(
                     items(uiState.goals, key = { it.id }) { goal ->
                         val isFocusEligible = viewModel.isGoalFocusEligible(goal)
                         val isGoalLockedInSession = uiState.activeFocusSession?.goalId == goal.id
+                        val streak = uiState.streaks[goal.id]
 
                         GoalItemCard(
                             goal = goal,
+                            streak = streak,
                             isFocusEligible = isFocusEligible,
                             isLockedInSession = isGoalLockedInSession,
                             onStartFocusClick = { viewModel.openStartFocusDialog(goal) },
@@ -169,8 +190,8 @@ fun GoalsScreen(
         StartFocusSessionDialog(
             goal = uiState.focusGoal!!,
             onDismiss = { viewModel.closeStartFocusDialog() },
-            onStart = { duration ->
-                viewModel.startFocusSession(uiState.focusGoal!!, duration)
+            onStart = { durationMinutes ->
+                viewModel.startFocusSession(uiState.focusGoal!!, durationMinutes)
             }
         )
     }
@@ -179,6 +200,7 @@ fun GoalsScreen(
 @Composable
 private fun GoalItemCard(
     goal: GoalTemplate,
+    streak: GoalStreak?,
     isFocusEligible: Boolean,
     isLockedInSession: Boolean,
     onStartFocusClick: () -> Unit,
@@ -223,6 +245,31 @@ private fun GoalItemCard(
             }
 
             Spacer(modifier = Modifier.height(4.dp))
+
+            // Streak Badge
+            if (streak != null && streak.currentStreak > 0) {
+                val bonusFraction = min(
+                    streak.currentStreak * GamificationConfig.STREAK_BONUS_PER_DAY,
+                    GamificationConfig.MAX_STREAK_BONUS
+                )
+                val bonusPercent = (bonusFraction * 100).toInt()
+                val bonusText = if (bonusPercent > 0) " (+${bonusPercent}% bonus)" else ""
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "🔥 ${streak.currentStreak} day streak$bonusText",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+            }
 
             Text(
                 text = "Reward: +${goal.creditRate} credits / ${goal.unit}",
@@ -352,7 +399,7 @@ private fun AddEditGoalDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val rate = creditRateStr.toDoubleOrNull() ?: 0.0
+                    val rate = creditRateStr.toDoubleOrNull() ?: 1.0
                     val cap = dailyCapStr.toDoubleOrNull() ?: 0.0
                     onSave(goal?.id ?: 0L, title, unit, rate, cap, recurring)
                 }
@@ -380,12 +427,14 @@ private fun CompleteGoalDialog(
         onDismissRequest = onDismiss,
         title = { Text("Complete Goal: ${goal.title}") },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
-                    text = "Enter amount completed in ${goal.unit}:",
+                    text = "Enter the amount completed in ${goal.unit}:",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
                     value = amountStr,
                     onValueChange = { amountStr = it },
@@ -393,14 +442,6 @@ private fun CompleteGoalDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
-                )
-                val amount = amountStr.toDoubleOrNull() ?: 0.0
-                val estCredits = amount * goal.creditRate
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Estimated reward: +${String.format("%.1f", estCredits)} credits",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
                 )
             }
         },
@@ -413,7 +454,7 @@ private fun CompleteGoalDialog(
                     }
                 }
             ) {
-                Text("Confirm")
+                Text("Complete")
             }
         },
         dismissButton = {

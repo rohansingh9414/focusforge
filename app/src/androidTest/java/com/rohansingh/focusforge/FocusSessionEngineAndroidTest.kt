@@ -46,10 +46,17 @@ class FocusSessionEngineAndroidTest {
         database = AppDatabase.getDatabase(context)
 
         focusSessionRepository = FocusSessionRepository(database.focusSessionDao())
-        goalRepository = GoalRepository(database.goalTemplateDao(), database.goalLogDao())
+        goalRepository = GoalRepository(
+            database = database,
+            goalTemplateDao = database.goalTemplateDao(),
+            goalLogDao = database.goalLogDao(),
+            goalStreakDao = database.goalStreakDao(),
+            xpLogDao = database.xpLogDao(),
+            walletDao = database.walletDao()
+        )
         walletRepository = WalletRepository(database.walletDao())
         restrictedAppRepository = RestrictedAppRepository(database.restrictedAppDao())
-        goalManager = GoalManager(goalRepository, walletRepository)
+        goalManager = GoalManager(goalRepository)
 
         val alarmScheduler = AndroidFocusSessionAlarmScheduler(context)
         focusSessionManager = FocusSessionManager(
@@ -57,6 +64,11 @@ class FocusSessionEngineAndroidTest {
             goalManager = goalManager,
             alarmScheduler = alarmScheduler
         )
+
+        runBlocking {
+            database.clearAllTables()
+            walletRepository.ensureWalletInitialized()
+        }
 
         val packageName = context.packageName
         InstrumentationRegistry.getInstrumentation().uiAutomation
