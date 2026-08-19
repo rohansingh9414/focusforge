@@ -13,7 +13,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -27,10 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.rohansingh.focusforge.domain.models.BlockerReason
 
 @Composable
 fun BlockerScreen(
     blockedPackageName: String?,
+    reason: BlockerReason = BlockerReason.REGULAR_SCREEN_TIME_EXHAUSTED,
+    goalTitle: String? = null,
+    remainingSeconds: Int = 0,
     onReturnToApp: () -> Unit,
     onGoToHomeScreen: () -> Unit
 ) {
@@ -38,6 +41,8 @@ fun BlockerScreen(
     BackHandler {
         onGoToHomeScreen()
     }
+
+    val isFocusSession = reason == BlockerReason.FOCUS_SESSION_ACTIVE
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -53,7 +58,10 @@ fun BlockerScreen(
             Card(
                 shape = RoundedCornerShape(32.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
+                    containerColor = if (isFocusSession)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.errorContainer
                 ),
                 modifier = Modifier.size(96.dp)
             ) {
@@ -65,7 +73,10 @@ fun BlockerScreen(
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = "Lock",
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        tint = if (isFocusSession)
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        else
+                            MaterialTheme.colorScheme.onErrorContainer,
                         modifier = Modifier.size(48.dp)
                     )
                 }
@@ -74,7 +85,7 @@ fun BlockerScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Screen Time Exhausted",
+                text = if (isFocusSession) "Focus Session Active" else "Screen Time Exhausted",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground,
@@ -84,9 +95,12 @@ fun BlockerScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "FocusForge restriction is active",
+                text = if (isFocusSession && !goalTitle.isNullOrBlank())
+                    "Focusing on: $goalTitle"
+                else
+                    "FocusForge restriction is active",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.error,
+                color = if (isFocusSession) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
@@ -104,19 +118,36 @@ fun BlockerScreen(
                     modifier = Modifier.padding(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "You have 0 minutes of screen time remaining for restricted apps.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Complete goals or exchange currency in FocusForge to earn more screen time.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        textAlign = TextAlign.Center
-                    )
+                    if (isFocusSession) {
+                        Text(
+                            text = "This app is restricted during your active focus session.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Stay focused to complete your session and earn goal credits!",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
+                    } else {
+                        Text(
+                            text = "You have 0 minutes of screen time remaining for restricted apps.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Complete goals or exchange currency in FocusForge to earn more screen time.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
 

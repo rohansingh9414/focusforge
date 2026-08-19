@@ -12,11 +12,15 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.rohansingh.focusforge.FocusForgeApplication
 import com.rohansingh.focusforge.MainActivity
-import com.rohansingh.focusforge.data.database.AppDatabase
+import com.rohansingh.focusforge.data.entities.FocusSessionEntity
+import com.rohansingh.focusforge.data.repository.FocusSessionRepository
 import com.rohansingh.focusforge.data.repository.RestrictedAppRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.ScreenTimeManager
+import com.rohansingh.focusforge.domain.models.BlockerReason
+import com.rohansingh.focusforge.domain.models.FocusSessionStatus
 import com.rohansingh.focusforge.ui.blocker.BlockerActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,8 +33,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * Foreground service foundation and engine that continuously runs ForegroundAppDetector
- * and ScreenTimeManager when restricted applications are configured and active.
+ * Foreground service foundation and engine that continuously runs ForegroundAppDetector,
+ * ScreenTimeManager, and FocusSession strict lockdown monitoring when restricted applications
+ * are configured and active.
  */
 class AppMonitoringService : Service() {
 
@@ -38,10 +43,16 @@ class AppMonitoringService : Service() {
     private lateinit var detector: ForegroundAppDetector
     private lateinit var restrictedAppRepository: RestrictedAppRepository
     private lateinit var walletRepository: WalletRepository
+    private lateinit var focusSessionRepository: FocusSessionRepository
     private lateinit var screenTimeManager: ScreenTimeManager
     private lateinit var powerManager: PowerManager
 
-    private var isBlockerActive = false
+    // Cached authoritative active session observed from Room
+    @Volatile
+    private var activeFocusSession: FocusSessionEntity? = null
+
+    // Blocker re-trigger throttling
+    private var lastBlockerTriggerTimeMs: Long = 0L
     private var lastBlockedPackage: String? = null
 
     override fun onCreate() {
@@ -51,13 +62,22 @@ class AppMonitoringService : Service() {
         detector = ForegroundAppDetector(applicationContext)
         powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
 
-        val db = AppDatabase.getDatabase(applicationContext)
-        restrictedAppRepository = RestrictedAppRepository(db.restrictedAppDao())
-        walletRepository = WalletRepository(db.walletDao())
+        val app = applicationContext as? FocusForgeApplication ?: FocusForgeApplication.instance
+        restrictedAppRepository = app.restrictedAppRepository
+        walletRepository = app.walletRepository
+        focusSessionRepository = app.focusSessionRepository
         screenTimeManager = ScreenTimeManager(
             walletRepository = walletRepository,
             restrictedAppRepository = restrictedAppRepository
         )
+
+        // Authoritative Room observation for active FocusSession
+        serviceScope.launch {
+            focusSessionRepository.activeSession.collect { entity ->
+                activeFocusSession = entity
+                Log.d(TAG, "Observed Room active FocusSession change: id=${entity?.id}, status=${entity?.status}, goal=${entity?.snapshotGoalTitle}")
+            }
+        }
 
         _isRunning.value = true
     }
@@ -101,38 +121,103 @@ class AppMonitoringService : Service() {
     private fun handleForegroundTick(currentPackage: String?) {
         serviceScope.launch {
             val isInteractive = powerManager.isInteractive
-            val status = screenTimeManager.processTick(
-                currentPackage = currentPackage,
-                isInteractive = isInteractive,
-                currentTimeMs = System.currentTimeMillis()
-            )
+            val session = activeFocusSession
+            val isFocusActive = session != null && session.status == FocusSessionStatus.RUNNING.name
 
-            // If current package is FocusForge or null/unrestricted, reset blocker flag
-            if (currentPackage == null || currentPackage == packageName || !status.isRestricted) {
-                isBlockerActive = false
+            // If current package is FocusForge (including BlockerActivity or MainActivity) or null, reset blocker tracking
+            if (currentPackage == null || currentPackage == packageName) {
                 lastBlockedPackage = null
+                return@launch
             }
 
-            if (status.shouldBlock && currentPackage != null && currentPackage != packageName) {
-                // If blocker is not currently active or package changed, trigger blocker
-                if (!isBlockerActive || lastBlockedPackage != currentPackage) {
-                    isBlockerActive = true
-                    lastBlockedPackage = currentPackage
-                    triggerBlocker(currentPackage)
+            val isRestricted = restrictedAppRepository.isAppRestricted(currentPackage)
+            val now = System.currentTimeMillis()
+
+            if (isFocusActive && session != null) {
+                // STRICT FOCUS MODE:
+                // If foreground app is in RestrictedApp list -> BLOCK IMMEDIATELY
+                // Overrides Wallet.screenTimeMinutes entirely, and does NOT consume wallet screen time
+                if (isRestricted) {
+                    val shouldTrigger = (lastBlockedPackage != currentPackage) ||
+                        (now - lastBlockerTriggerTimeMs >= BLOCKER_THROTTLE_MS)
+
+                    if (shouldTrigger) {
+                        lastBlockerTriggerTimeMs = now
+                        lastBlockedPackage = currentPackage
+
+                        val remainingSeconds = ((session.targetEndWallClockMs - now) / 1000).coerceAtLeast(0).toInt()
+                        triggerBlocker(
+                            blockedPackage = currentPackage,
+                            reason = BlockerReason.FOCUS_SESSION_ACTIVE,
+                            goalTitle = session.snapshotGoalTitle,
+                            remainingSeconds = remainingSeconds
+                        )
+                    }
+                } else {
+                    // Non-restricted app -> allow normally
+                    lastBlockedPackage = null
+                }
+            } else {
+                // NORMAL PHASE 7 MODE:
+                val status = screenTimeManager.processTick(
+                    currentPackage = currentPackage,
+                    isInteractive = isInteractive,
+                    currentTimeMs = now
+                )
+
+                if (!status.isRestricted || !status.shouldBlock) {
+                    lastBlockedPackage = null
+                } else if (status.shouldBlock) {
+                    val shouldTrigger = (lastBlockedPackage != currentPackage) ||
+                        (now - lastBlockerTriggerTimeMs >= BLOCKER_THROTTLE_MS)
+
+                    if (shouldTrigger) {
+                        lastBlockerTriggerTimeMs = now
+                        lastBlockedPackage = currentPackage
+                        triggerBlocker(
+                            blockedPackage = currentPackage,
+                            reason = BlockerReason.REGULAR_SCREEN_TIME_EXHAUSTED
+                        )
+                    }
                 }
             }
         }
     }
 
-    private fun triggerBlocker(blockedPackage: String) {
-        Log.d(TAG, "Triggering BlockerActivity for: $blockedPackage")
+    private fun triggerBlocker(
+        blockedPackage: String,
+        reason: BlockerReason,
+        goalTitle: String? = null,
+        remainingSeconds: Int = 0
+    ) {
+        Log.d(TAG, "Triggering BlockerActivity for: $blockedPackage (reason: $reason)")
         val intent = Intent(this, BlockerActivity::class.java).apply {
             putExtra(BlockerActivity.EXTRA_BLOCKED_PACKAGE, blockedPackage)
+            putExtra(BlockerActivity.EXTRA_BLOCKER_REASON, reason.name)
+            putExtra(BlockerActivity.EXTRA_GOAL_TITLE, goalTitle)
+            putExtra(BlockerActivity.EXTRA_REMAINING_SECONDS, remainingSeconds)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_SINGLE_TOP or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        startActivity(intent)
+
+        val options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            android.app.ActivityOptions.makeBasic().apply {
+                pendingIntentBackgroundActivityStartMode = android.app.ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+            }.toBundle()
+        } else {
+            null
+        }
+
+        try {
+            if (options != null) {
+                startActivity(intent, options)
+            } else {
+                startActivity(intent)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start BlockerActivity: ${e.message}", e)
+        }
     }
 
     private fun stopMonitoringService() {
@@ -149,8 +234,8 @@ class AppMonitoringService : Service() {
         Log.d(TAG, "onDestroy: AppMonitoringService destroyed")
         detector.stopMonitoring()
         screenTimeManager.resetTrackingState()
-        serviceScope.cancel()
         _isRunning.value = false
+        serviceScope.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -159,14 +244,14 @@ class AppMonitoringService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "FocusForge Restriction Monitor",
+                "App Restriction Monitoring",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Monitors restricted application usage"
+                description = "Monitors restricted application usage and focus sessions"
                 setShowBadge(false)
             }
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager?.createNotificationChannel(channel)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
         }
     }
 
@@ -175,13 +260,13 @@ class AppMonitoringService : Service() {
             this,
             0,
             Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("FocusForge Active")
+            .setContentTitle("FocusForge Monitoring")
             .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -189,20 +274,18 @@ class AppMonitoringService : Service() {
     }
 
     companion object {
-        const val TAG = "AppMonitoringService"
-        const val CHANNEL_ID = "focusforge_app_monitoring"
-        const val NOTIFICATION_ID = 1001
+        private const val TAG = "AppMonitoringService"
+        private const val CHANNEL_ID = "app_monitoring_channel"
+        private const val NOTIFICATION_ID = 1001
+        private const val BLOCKER_THROTTLE_MS = 1500L
 
-        const val ACTION_START_MONITORING = "com.rohansingh.focusforge.START_MONITORING"
-        const val ACTION_STOP_MONITORING = "com.rohansingh.focusforge.STOP_MONITORING"
+        const val ACTION_STOP_MONITORING = "com.rohansingh.focusforge.ACTION_STOP_MONITORING"
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
         fun start(context: Context) {
-            val intent = Intent(context, AppMonitoringService::class.java).apply {
-                action = ACTION_START_MONITORING
-            }
+            val intent = Intent(context, AppMonitoringService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {

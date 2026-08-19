@@ -9,15 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
-import com.rohansingh.focusforge.data.database.AppDatabase
-import com.rohansingh.focusforge.data.repository.ExchangeConfigRepository
-import com.rohansingh.focusforge.data.repository.GoalRepository
-import com.rohansingh.focusforge.data.repository.RestrictedAppRepository
-import com.rohansingh.focusforge.data.repository.RewardRepository
-import com.rohansingh.focusforge.data.repository.WalletRepository
-import com.rohansingh.focusforge.domain.managers.BarterManager
-import com.rohansingh.focusforge.domain.managers.GoalManager
-import com.rohansingh.focusforge.domain.managers.RewardManager
 import com.rohansingh.focusforge.services.usage.AppMonitoringService
 import com.rohansingh.focusforge.ui.navigation.BottomNavBar
 import com.rohansingh.focusforge.ui.navigation.FocusForgeNavHost
@@ -28,15 +19,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val database = AppDatabase.getDatabase(applicationContext)
-        val walletRepository = WalletRepository(database.walletDao())
-        val exchangeConfigRepository = ExchangeConfigRepository(applicationContext)
-        val goalRepository = GoalRepository(database.goalTemplateDao(), database.goalLogDao())
-        val goalManager = GoalManager(goalRepository, walletRepository)
-        val rewardRepository = RewardRepository(database.rewardTemplateDao(), database.redemptionLogDao())
-        val rewardManager = RewardManager(rewardRepository, walletRepository, exchangeConfigRepository)
-        val barterManager = BarterManager(walletRepository, exchangeConfigRepository)
-        val restrictedAppRepository = RestrictedAppRepository(database.restrictedAppDao())
+        val app = application as FocusForgeApplication
+        val walletRepository = app.walletRepository
+        val exchangeConfigRepository = app.exchangeConfigRepository
+        val goalRepository = app.goalRepository
+        val goalManager = app.goalManager
+        val rewardRepository = app.rewardRepository
+        val rewardManager = app.rewardManager
+        val barterManager = app.barterManager
+        val restrictedAppRepository = app.restrictedAppRepository
+        val focusSessionManager = app.focusSessionManager
 
         // Start restriction monitoring service
         AppMonitoringService.start(applicationContext)
@@ -58,6 +50,7 @@ class MainActivity : ComponentActivity() {
                         exchangeConfigRepository = exchangeConfigRepository,
                         barterManager = barterManager,
                         restrictedAppRepository = restrictedAppRepository,
+                        focusSessionManager = focusSessionManager,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }

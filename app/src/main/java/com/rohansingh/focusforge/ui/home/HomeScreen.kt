@@ -46,9 +46,14 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         // Balance Cards
+        val creditText = if (uiState.creditBalance % 1.0 == 0.0) {
+            String.format("%.0f", uiState.creditBalance)
+        } else {
+            String.format("%.1f", uiState.creditBalance)
+        }
         BalanceCard(
             title = "Credits",
-            value = String.format("%.0f", uiState.creditBalance)
+            value = creditText
         )
         Spacer(modifier = Modifier.height(12.dp))
 

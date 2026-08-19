@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rohansingh.focusforge.data.entities.GoalTemplate
 import com.rohansingh.focusforge.data.repository.GoalRepository
+import com.rohansingh.focusforge.domain.managers.FocusSessionManager
 import com.rohansingh.focusforge.domain.managers.GoalManager
 import kotlinx.coroutines.flow.collectLatest
 
@@ -55,8 +57,9 @@ import kotlinx.coroutines.flow.collectLatest
 fun GoalsScreen(
     goalRepository: GoalRepository,
     goalManager: GoalManager,
+    focusSessionManager: FocusSessionManager,
     viewModel: GoalsViewModel = viewModel(
-        factory = GoalsViewModel.Factory(goalRepository, goalManager)
+        factory = GoalsViewModel.Factory(goalRepository, goalManager, focusSessionManager)
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -110,9 +113,24 @@ fun GoalsScreen(
                         )
                     }
 
+                    // Active Focus Session Countdown Card
+                    if (uiState.activeFocusSession != null) {
+                        item {
+                            ActiveFocusSessionCard(
+                                session = uiState.activeFocusSession!!
+                            )
+                        }
+                    }
+
                     items(uiState.goals, key = { it.id }) { goal ->
+                        val isFocusEligible = viewModel.isGoalFocusEligible(goal)
+                        val isGoalLockedInSession = uiState.activeFocusSession?.goalId == goal.id
+
                         GoalItemCard(
                             goal = goal,
+                            isFocusEligible = isFocusEligible,
+                            isLockedInSession = isGoalLockedInSession,
+                            onStartFocusClick = { viewModel.openStartFocusDialog(goal) },
                             onCompleteClick = { viewModel.openCompleteGoalDialog(goal) },
                             onEditClick = { viewModel.openEditGoalDialog(goal) },
                             onDeleteClick = { viewModel.deleteGoal(goal) }
@@ -146,11 +164,24 @@ fun GoalsScreen(
             }
         )
     }
+
+    if (uiState.isStartFocusDialogOpen && uiState.focusGoal != null) {
+        StartFocusSessionDialog(
+            goal = uiState.focusGoal!!,
+            onDismiss = { viewModel.closeStartFocusDialog() },
+            onStart = { duration ->
+                viewModel.startFocusSession(uiState.focusGoal!!, duration)
+            }
+        )
+    }
 }
 
 @Composable
 private fun GoalItemCard(
     goal: GoalTemplate,
+    isFocusEligible: Boolean,
+    isLockedInSession: Boolean,
+    onStartFocusClick: () -> Unit,
     onCompleteClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -176,10 +207,16 @@ private fun GoalItemCard(
                     fontWeight = FontWeight.Bold
                 )
                 Row {
-                    IconButton(onClick = onEditClick) {
+                    IconButton(
+                        onClick = onEditClick,
+                        enabled = !isLockedInSession
+                    ) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Goal")
                     }
-                    IconButton(onClick = onDeleteClick) {
+                    IconButton(
+                        onClick = onDeleteClick,
+                        enabled = !isLockedInSession
+                    ) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete Goal")
                     }
                 }
@@ -206,11 +243,38 @@ private fun GoalItemCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Button(
-                onClick = onCompleteClick,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Complete")
+            if (isFocusEligible) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onStartFocusClick,
+                        modifier = Modifier.weight(1.5f),
+                        enabled = !isLockedInSession
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                        Text("Start Focus")
+                    }
+
+                    OutlinedButton(
+                        onClick = onCompleteClick,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Manual")
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onCompleteClick,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Complete")
+                }
             }
         }
     }
@@ -248,8 +312,8 @@ private fun AddEditGoalDialog(
                 OutlinedTextField(
                     value = unit,
                     onValueChange = { unit = it },
-                    label = { Text("Unit") },
-                    placeholder = { Text("e.g. pages, km, hours") },
+                    label = { Text("Unit (use 'minutes' or 'hours' for Focus Mode)") },
+                    placeholder = { Text("e.g. minutes, hours, pages, km") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

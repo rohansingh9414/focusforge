@@ -6,26 +6,33 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.rohansingh.focusforge.MainActivity
+import com.rohansingh.focusforge.domain.models.BlockerReason
 import com.rohansingh.focusforge.ui.theme.FocusForgeTheme
 
 /**
  * Activity presented when a user attempts to access a restricted application
- * while screen-time balance is exhausted (0 minutes).
+ * while screen-time balance is exhausted (0 minutes) or while a Focus Session is running.
  */
 class BlockerActivity : ComponentActivity() {
 
     private var blockedPackage: String? = null
+    private var blockerReason: BlockerReason = BlockerReason.REGULAR_SCREEN_TIME_EXHAUSTED
+    private var goalTitle: String? = null
+    private var remainingSeconds: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        blockedPackage = intent.getStringExtra(EXTRA_BLOCKED_PACKAGE)
+        extractIntentExtras(intent)
 
         setContent {
             FocusForgeTheme {
                 BlockerScreen(
                     blockedPackageName = blockedPackage,
+                    reason = blockerReason,
+                    goalTitle = goalTitle,
+                    remainingSeconds = remainingSeconds,
                     onReturnToApp = { returnToFocusForge() },
                     onGoToHomeScreen = { goToHomeScreen() }
                 )
@@ -36,7 +43,19 @@ class BlockerActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        blockedPackage = intent.getStringExtra(EXTRA_BLOCKED_PACKAGE)
+        extractIntentExtras(intent)
+    }
+
+    private fun extractIntentExtras(intent: Intent?) {
+        blockedPackage = intent?.getStringExtra(EXTRA_BLOCKED_PACKAGE)
+        val reasonStr = intent?.getStringExtra(EXTRA_BLOCKER_REASON)
+        blockerReason = if (reasonStr == BlockerReason.FOCUS_SESSION_ACTIVE.name) {
+            BlockerReason.FOCUS_SESSION_ACTIVE
+        } else {
+            BlockerReason.REGULAR_SCREEN_TIME_EXHAUSTED
+        }
+        goalTitle = intent?.getStringExtra(EXTRA_GOAL_TITLE)
+        remainingSeconds = intent?.getIntExtra(EXTRA_REMAINING_SECONDS, 0) ?: 0
     }
 
     private fun returnToFocusForge() {
@@ -58,5 +77,8 @@ class BlockerActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_BLOCKED_PACKAGE = "extra_blocked_package"
+        const val EXTRA_BLOCKER_REASON = "extra_blocker_reason"
+        const val EXTRA_GOAL_TITLE = "extra_goal_title"
+        const val EXTRA_REMAINING_SECONDS = "extra_remaining_seconds"
     }
 }
