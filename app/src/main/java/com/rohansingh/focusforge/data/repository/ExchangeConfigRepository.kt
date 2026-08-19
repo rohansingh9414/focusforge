@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.rohansingh.focusforge.domain.models.ExchangeConfig
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.exchangeDataStore: DataStore<Preferences> by preferencesDataStore(name = "exchange_config")
@@ -27,6 +28,10 @@ class ExchangeConfigRepository(private val context: Context) {
             creditsPerRupee = preferences[PreferencesKeys.CREDITS_PER_RUPEE] ?: 1.0,
             exchangeFeePercent = preferences[PreferencesKeys.EXCHANGE_FEE_PERCENT] ?: 0.0
         )
+    }
+
+    suspend fun getExchangeConfigOnce(): ExchangeConfig {
+        return exchangeConfig.first()
     }
 
     suspend fun updateExchangeConfig(config: ExchangeConfig) {
