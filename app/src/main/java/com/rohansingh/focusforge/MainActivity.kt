@@ -14,6 +14,7 @@ import com.rohansingh.focusforge.data.repository.ExchangeConfigRepository
 import com.rohansingh.focusforge.data.repository.GoalRepository
 import com.rohansingh.focusforge.data.repository.RewardRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
+import com.rohansingh.focusforge.domain.managers.BarterManager
 import com.rohansingh.focusforge.domain.managers.GoalManager
 import com.rohansingh.focusforge.domain.managers.RewardManager
 import com.rohansingh.focusforge.ui.navigation.BottomNavBar
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
         val goalManager = GoalManager(goalRepository, walletRepository)
         val rewardRepository = RewardRepository(database.rewardTemplateDao(), database.redemptionLogDao())
         val rewardManager = RewardManager(rewardRepository, walletRepository, exchangeConfigRepository)
+        val barterManager = BarterManager(walletRepository, exchangeConfigRepository)
 
         setContent {
             FocusForgeTheme {
@@ -48,6 +50,7 @@ class MainActivity : ComponentActivity() {
                         rewardRepository = rewardRepository,
                         rewardManager = rewardManager,
                         exchangeConfigRepository = exchangeConfigRepository,
+                        barterManager = barterManager,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }

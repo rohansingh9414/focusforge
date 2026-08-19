@@ -16,25 +16,26 @@ private val Context.exchangeDataStore: DataStore<Preferences> by preferencesData
 /**
  * DataStore-backed repository for ExchangeConfig settings.
  */
-class ExchangeConfigRepository(private val context: Context) {
+open class ExchangeConfigRepository(private val context: Context) {
 
     private object PreferencesKeys {
         val CREDITS_PER_RUPEE = doublePreferencesKey("credits_per_rupee")
         val EXCHANGE_FEE_PERCENT = doublePreferencesKey("exchange_fee_percent")
     }
 
-    val exchangeConfig: Flow<ExchangeConfig> = context.exchangeDataStore.data.map { preferences ->
-        ExchangeConfig(
-            creditsPerRupee = preferences[PreferencesKeys.CREDITS_PER_RUPEE] ?: 1.0,
-            exchangeFeePercent = preferences[PreferencesKeys.EXCHANGE_FEE_PERCENT] ?: 0.0
-        )
-    }
+    open val exchangeConfig: Flow<ExchangeConfig>
+        get() = context.exchangeDataStore.data.map { preferences ->
+            ExchangeConfig(
+                creditsPerRupee = preferences[PreferencesKeys.CREDITS_PER_RUPEE] ?: 1.0,
+                exchangeFeePercent = preferences[PreferencesKeys.EXCHANGE_FEE_PERCENT] ?: 0.0
+            )
+        }
 
-    suspend fun getExchangeConfigOnce(): ExchangeConfig {
+    open suspend fun getExchangeConfigOnce(): ExchangeConfig {
         return exchangeConfig.first()
     }
 
-    suspend fun updateExchangeConfig(config: ExchangeConfig) {
+    open suspend fun updateExchangeConfig(config: ExchangeConfig) {
         context.exchangeDataStore.edit { preferences ->
             preferences[PreferencesKeys.CREDITS_PER_RUPEE] = config.creditsPerRupee
             preferences[PreferencesKeys.EXCHANGE_FEE_PERCENT] = config.exchangeFeePercent

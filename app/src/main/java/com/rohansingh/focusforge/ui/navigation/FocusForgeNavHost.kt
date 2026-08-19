@@ -9,6 +9,7 @@ import com.rohansingh.focusforge.data.repository.ExchangeConfigRepository
 import com.rohansingh.focusforge.data.repository.GoalRepository
 import com.rohansingh.focusforge.data.repository.RewardRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
+import com.rohansingh.focusforge.domain.managers.BarterManager
 import com.rohansingh.focusforge.domain.managers.GoalManager
 import com.rohansingh.focusforge.domain.managers.RewardManager
 import com.rohansingh.focusforge.ui.goals.GoalsScreen
@@ -27,6 +28,7 @@ fun FocusForgeNavHost(
     rewardRepository: RewardRepository,
     rewardManager: RewardManager,
     exchangeConfigRepository: ExchangeConfigRepository,
+    barterManager: BarterManager,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -50,6 +52,12 @@ fun FocusForgeNavHost(
         }
         composable(Screen.Restrictions.route) { RestrictionsScreen() }
         composable(Screen.Stats.route) { StatsScreen() }
-        composable(Screen.Settings.route) { SettingsScreen() }
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                walletRepository = walletRepository,
+                exchangeConfigRepository = exchangeConfigRepository,
+                barterManager = barterManager
+            )
+        }
     }
 }
