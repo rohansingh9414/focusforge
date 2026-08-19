@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
+import com.rohansingh.focusforge.data.database.AppDatabase
+import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.ui.navigation.BottomNavBar
 import com.rohansingh.focusforge.ui.navigation.FocusForgeNavHost
 import com.rohansingh.focusforge.ui.theme.FocusForgeTheme
@@ -17,6 +19,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val database = AppDatabase.getDatabase(applicationContext)
+        val walletRepository = WalletRepository(database.walletDao())
+
         setContent {
             FocusForgeTheme {
                 val navController = rememberNavController()
@@ -26,6 +32,7 @@ class MainActivity : ComponentActivity() {
                 ) { innerPadding ->
                     FocusForgeNavHost(
                         navController = navController,
+                        walletRepository = walletRepository,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }

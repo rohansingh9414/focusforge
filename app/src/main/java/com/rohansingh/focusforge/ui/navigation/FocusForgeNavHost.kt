@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.ui.goals.GoalsScreen
 import com.rohansingh.focusforge.ui.home.HomeScreen
 import com.rohansingh.focusforge.ui.restrictions.RestrictionsScreen
@@ -15,6 +16,7 @@ import com.rohansingh.focusforge.ui.stats.StatsScreen
 @Composable
 fun FocusForgeNavHost(
     navController: NavHostController,
+    walletRepository: WalletRepository,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -22,7 +24,7 @@ fun FocusForgeNavHost(
         startDestination = Screen.Home.route,
         modifier = modifier
     ) {
-        composable(Screen.Home.route) { HomeScreen() }
+        composable(Screen.Home.route) { HomeScreen(walletRepository = walletRepository) }
         composable(Screen.Goals.route) { GoalsScreen() }
         composable(Screen.Rewards.route) { RewardsScreen() }
         composable(Screen.Restrictions.route) { RestrictionsScreen() }
