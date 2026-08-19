@@ -7,11 +7,13 @@ import androidx.room.RoomDatabase
 import com.rohansingh.focusforge.data.dao.GoalLogDao
 import com.rohansingh.focusforge.data.dao.GoalTemplateDao
 import com.rohansingh.focusforge.data.dao.RedemptionLogDao
+import com.rohansingh.focusforge.data.dao.RestrictedAppDao
 import com.rohansingh.focusforge.data.dao.RewardTemplateDao
 import com.rohansingh.focusforge.data.dao.WalletDao
 import com.rohansingh.focusforge.data.entities.GoalLog
 import com.rohansingh.focusforge.data.entities.GoalTemplate
 import com.rohansingh.focusforge.data.entities.RedemptionLog
+import com.rohansingh.focusforge.data.entities.RestrictedApp
 import com.rohansingh.focusforge.data.entities.RewardTemplate
 import com.rohansingh.focusforge.data.entities.Wallet
 
@@ -24,9 +26,10 @@ import com.rohansingh.focusforge.data.entities.Wallet
         GoalTemplate::class,
         GoalLog::class,
         RewardTemplate::class,
-        RedemptionLog::class
+        RedemptionLog::class,
+        RestrictedApp::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,6 +39,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun goalLogDao(): GoalLogDao
     abstract fun rewardTemplateDao(): RewardTemplateDao
     abstract fun redemptionLogDao(): RedemptionLogDao
+    abstract fun restrictedAppDao(): RestrictedAppDao
 
     companion object {
         const val DATABASE_NAME = "focusforge.db"

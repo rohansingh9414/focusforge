@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.rohansingh.focusforge.data.repository.ExchangeConfigRepository
 import com.rohansingh.focusforge.data.repository.GoalRepository
+import com.rohansingh.focusforge.data.repository.RestrictedAppRepository
 import com.rohansingh.focusforge.data.repository.RewardRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.BarterManager
@@ -29,6 +30,7 @@ fun FocusForgeNavHost(
     rewardManager: RewardManager,
     exchangeConfigRepository: ExchangeConfigRepository,
     barterManager: BarterManager,
+    restrictedAppRepository: RestrictedAppRepository,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -50,7 +52,9 @@ fun FocusForgeNavHost(
                 exchangeConfigRepository = exchangeConfigRepository
             )
         }
-        composable(Screen.Restrictions.route) { RestrictionsScreen() }
+        composable(Screen.Restrictions.route) {
+            RestrictionsScreen(restrictedAppRepository = restrictedAppRepository)
+        }
         composable(Screen.Stats.route) { StatsScreen() }
         composable(Screen.Settings.route) {
             SettingsScreen(

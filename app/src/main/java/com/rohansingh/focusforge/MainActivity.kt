@@ -12,11 +12,13 @@ import androidx.navigation.compose.rememberNavController
 import com.rohansingh.focusforge.data.database.AppDatabase
 import com.rohansingh.focusforge.data.repository.ExchangeConfigRepository
 import com.rohansingh.focusforge.data.repository.GoalRepository
+import com.rohansingh.focusforge.data.repository.RestrictedAppRepository
 import com.rohansingh.focusforge.data.repository.RewardRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.BarterManager
 import com.rohansingh.focusforge.domain.managers.GoalManager
 import com.rohansingh.focusforge.domain.managers.RewardManager
+import com.rohansingh.focusforge.services.usage.AppMonitoringService
 import com.rohansingh.focusforge.ui.navigation.BottomNavBar
 import com.rohansingh.focusforge.ui.navigation.FocusForgeNavHost
 import com.rohansingh.focusforge.ui.theme.FocusForgeTheme
@@ -34,6 +36,10 @@ class MainActivity : ComponentActivity() {
         val rewardRepository = RewardRepository(database.rewardTemplateDao(), database.redemptionLogDao())
         val rewardManager = RewardManager(rewardRepository, walletRepository, exchangeConfigRepository)
         val barterManager = BarterManager(walletRepository, exchangeConfigRepository)
+        val restrictedAppRepository = RestrictedAppRepository(database.restrictedAppDao())
+
+        // Start restriction monitoring service
+        AppMonitoringService.start(applicationContext)
 
         setContent {
             FocusForgeTheme {
@@ -51,6 +57,7 @@ class MainActivity : ComponentActivity() {
                         rewardManager = rewardManager,
                         exchangeConfigRepository = exchangeConfigRepository,
                         barterManager = barterManager,
+                        restrictedAppRepository = restrictedAppRepository,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
