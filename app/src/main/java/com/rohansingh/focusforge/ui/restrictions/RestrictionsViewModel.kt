@@ -21,6 +21,7 @@ data class RestrictionsUiState(
     val filteredApps: List<InstalledAppInfo> = emptyList(),
     val searchQuery: String = "",
     val hasUsageAccess: Boolean = false,
+    val hasOverlayPermission: Boolean = false,
     val restrictedCount: Int = 0,
     val isMonitoringActive: Boolean = false
 )
@@ -35,14 +36,16 @@ class RestrictionsViewModel(
     private val searchQuery = MutableStateFlow("")
     private val rawInstalledApps = MutableStateFlow<List<InstalledAppInfo>>(emptyList())
     private val hasUsageAccess = MutableStateFlow(detector.hasUsageAccessPermission())
+    private val hasOverlayPermission = MutableStateFlow(detector.hasOverlayPermission())
 
     val uiState: StateFlow<RestrictionsUiState> = combine(
-        rawInstalledApps,
-        restrictedAppRepository.allRestrictedApps,
-        searchQuery,
-        hasUsageAccess,
-        AppMonitoringService.isRunning
-    ) { installed, restrictedEntities, query, permission, isRunning ->
+        combine(rawInstalledApps, restrictedAppRepository.allRestrictedApps, searchQuery) { apps, restricted, query ->
+            Triple(apps, restricted, query)
+        },
+        combine(hasUsageAccess, hasOverlayPermission, AppMonitoringService.isRunning) { usage, overlay, isRunning ->
+            Triple(usage, overlay, isRunning)
+        }
+    ) { (installed, restrictedEntities, query), (usagePermission, overlayPermission, isRunning) ->
         val restrictedMap = restrictedEntities.associate { it.packageName to it.isRestricted }
 
         val appsWithStatus = installed.map { app ->
@@ -64,7 +67,8 @@ class RestrictionsViewModel(
             apps = appsWithStatus,
             filteredApps = filtered,
             searchQuery = query,
-            hasUsageAccess = permission,
+            hasUsageAccess = usagePermission,
+            hasOverlayPermission = overlayPermission,
             restrictedCount = restrictedCount,
             isMonitoringActive = isRunning
         )
@@ -81,6 +85,7 @@ class RestrictionsViewModel(
     fun loadInstalledApps() {
         viewModelScope.launch {
             hasUsageAccess.value = detector.hasUsageAccessPermission()
+            hasOverlayPermission.value = detector.hasOverlayPermission()
             val apps = appDiscoveryService.getInstalledLaunchableApps()
             rawInstalledApps.value = apps
         }
@@ -92,9 +97,12 @@ class RestrictionsViewModel(
 
     fun checkPermission() {
         hasUsageAccess.value = detector.hasUsageAccessPermission()
+        hasOverlayPermission.value = detector.hasOverlayPermission()
     }
 
     fun getUsageAccessSettingsIntent() = detector.getUsageAccessSettingsIntent()
+
+    fun getOverlaySettingsIntent() = detector.getOverlaySettingsIntent()
 
     fun toggleAppRestriction(packageName: String, appName: String, currentlyRestricted: Boolean) {
         viewModelScope.launch {

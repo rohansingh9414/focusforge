@@ -25,6 +25,7 @@ import com.rohansingh.focusforge.domain.models.FocusSessionStatus
 import com.rohansingh.focusforge.ui.blocker.BlockerActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,7 @@ import kotlinx.coroutines.launch
 class AppMonitoringService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var detectionJob: Job? = null
     private lateinit var detector: ForegroundAppDetector
     private lateinit var restrictedAppRepository: RestrictedAppRepository
     private lateinit var walletRepository: WalletRepository
@@ -94,15 +96,32 @@ class AppMonitoringService : Service() {
         }
 
         val notification = buildNotification("Monitoring active app restrictions")
-        startForeground(NOTIFICATION_ID, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
 
         startForegroundDetection()
 
         return START_STICKY
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        Log.d(TAG, "onTaskRemoved: FocusForge task removed from Recents. AppMonitoringService continues running.")
+    }
+
     private fun startForegroundDetection() {
-        serviceScope.launch {
+        if (detectionJob?.isActive == true) {
+            Log.d(TAG, "startForegroundDetection: Detection job already active, skipping duplicate initialization")
+            return
+        }
+        detectionJob = serviceScope.launch {
             restrictedAppRepository.activeRestrictedPackageNames.collectLatest { restrictedPackages ->
                 Log.d(TAG, "Active restricted packages count: ${restrictedPackages.size}")
                 if (restrictedPackages.isEmpty()) {

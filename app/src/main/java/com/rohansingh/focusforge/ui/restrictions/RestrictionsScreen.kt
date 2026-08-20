@@ -82,12 +82,12 @@ fun RestrictionsScreen(
             modifier = Modifier.padding(vertical = 8.dp)
         )
 
-        // Permission Banner if missing
+        // Usage Access Permission Banner if missing
         if (!uiState.hasUsageAccess) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 4.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer
                 )
@@ -123,6 +123,52 @@ fun RestrictionsScreen(
                         )
                     ) {
                         Text("Grant Usage Access")
+                    }
+                }
+            }
+        }
+
+        // Display Over Other Apps (Overlay) Permission Banner if missing
+        if (!uiState.hasOverlayPermission) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Warning",
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Display Over Other Apps Required",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "FocusForge requires 'Display over other apps' permission to show the blocker screen over restricted applications.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            context.startActivity(viewModel.getOverlaySettingsIntent())
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Grant Overlay Permission")
                     }
                 }
             }

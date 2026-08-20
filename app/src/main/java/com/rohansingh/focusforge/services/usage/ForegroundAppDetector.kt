@@ -58,10 +58,29 @@ class ForegroundAppDetector(private val context: Context) {
     }
 
     /**
+     * Checks whether the app has been granted SYSTEM_ALERT_WINDOW (Display over other apps) permission.
+     */
+    fun hasOverlayPermission(): Boolean {
+        return Settings.canDrawOverlays(context)
+    }
+
+    /**
      * Returns an Intent to open the system Usage Access Settings screen.
      */
     fun getUsageAccessSettingsIntent(): Intent {
         return Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+    }
+
+    /**
+     * Returns an Intent to open the system Display Over Other Apps Settings screen.
+     */
+    fun getOverlaySettingsIntent(): Intent {
+        return Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            android.net.Uri.parse("package:${context.packageName}")
+        ).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
     }
