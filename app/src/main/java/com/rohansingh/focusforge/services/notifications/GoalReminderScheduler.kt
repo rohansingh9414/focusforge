@@ -18,7 +18,20 @@ object GoalReminderScheduler {
     private const val TAG = "GoalReminderScheduler"
 
     /**
+     * Checks whether exact alarms can currently be scheduled on this device and OS version.
+     */
+    fun canScheduleExact(context: Context): Boolean {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+    }
+
+    /**
      * Schedules or updates a daily alarm for the given [goal] at its configured reminderHour:reminderMinute.
+     * Uses exact alarms if available, otherwise falls back gracefully to a non-exact idle alarm.
      */
     fun scheduleReminder(context: Context, goal: GoalTemplate) {
         if (!goal.reminderEnabled || !goal.recurring) {
@@ -31,23 +44,52 @@ object GoalReminderScheduler {
 
         val triggerTimeMs = calculateNextTriggerTime(goal.reminderHour, goal.reminderMinute)
 
+        val canExact = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+
+        if (canExact) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTimeMs,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setExact(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTimeMs,
+                        pendingIntent
+                    )
+                }
+                Log.d(TAG, "Scheduled exact reminder for goal #${goal.id} ('${goal.title}') at triggerTime=$triggerTimeMs")
+                return
+            } catch (e: SecurityException) {
+                Log.w(TAG, "SecurityException scheduling exact alarm for goal #${goal.id}, falling back to non-exact alarm", e)
+            }
+        }
+
+        // Safe fallback: non-exact alarm that works without SCHEDULE_EXACT_ALARM permission
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
+                alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTimeMs,
                     pendingIntent
                 )
             } else {
-                alarmManager.setExact(
+                alarmManager.set(
                     AlarmManager.RTC_WAKEUP,
                     triggerTimeMs,
                     pendingIntent
                 )
             }
-            Log.d(TAG, "Scheduled reminder for goal #${goal.id} ('${goal.title}') at triggerTime=$triggerTimeMs")
+            Log.d(TAG, "Scheduled non-exact fallback reminder for goal #${goal.id} ('${goal.title}') at triggerTime=$triggerTimeMs")
         } catch (e: SecurityException) {
-            Log.e(TAG, "SecurityException scheduling exact alarm for goal #${goal.id}", e)
+            Log.e(TAG, "SecurityException scheduling non-exact fallback reminder for goal #${goal.id}", e)
         }
     }
 

@@ -68,4 +68,45 @@ class GoalReminderSchedulerTest {
         assertEquals(20, goal.reminderHour)
         assertEquals(0, goal.reminderMinute)
     }
+
+    @Test
+    fun `calculateNextTriggerTime exactly at target time schedules for tomorrow`() {
+        val now = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 20)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        // Target: 20:00 (exact current millisecond)
+        val triggerTimeMs = GoalReminderScheduler.calculateNextTriggerTime(
+            hour = 20,
+            minute = 0,
+            now = now
+        )
+
+        val triggerCal = Calendar.getInstance().apply { timeInMillis = triggerTimeMs }
+        val tomorrowDay = (now.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 1) }.get(Calendar.DAY_OF_YEAR)
+        assertEquals(tomorrowDay, triggerCal.get(Calendar.DAY_OF_YEAR))
+        assertEquals(20, triggerCal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, triggerCal.get(Calendar.MINUTE))
+    }
+
+    @Test
+    fun `GoalTemplate with custom reminder time preserves custom values`() {
+        val goal = GoalTemplate(
+            id = 42,
+            title = "Morning Meditation",
+            unit = "minutes",
+            creditRate = 1.5,
+            recurring = true,
+            reminderEnabled = true,
+            reminderHour = 7,
+            reminderMinute = 30
+        )
+        assertTrue(goal.reminderEnabled)
+        assertTrue(goal.recurring)
+        assertEquals(7, goal.reminderHour)
+        assertEquals(30, goal.reminderMinute)
+    }
 }

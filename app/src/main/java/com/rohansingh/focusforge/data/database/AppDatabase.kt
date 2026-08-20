@@ -44,7 +44,7 @@ import com.rohansingh.focusforge.data.entities.XpLog
         ScreenTimeLog::class
     ],
     version = 7,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 
