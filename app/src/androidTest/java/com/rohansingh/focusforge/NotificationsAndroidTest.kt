@@ -57,12 +57,17 @@ class NotificationsAndroidTest {
 
     private fun setExactAlarmAppOp(allow: Boolean) {
         val mode = if (allow) "allow" else "ignore"
+        val uid = context.applicationInfo.uid
         val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
         val parcelFileDescriptor = instrumentation.uiAutomation.executeShellCommand(
-            "cmd appops set com.rohansingh.focusforge SCHEDULE_EXACT_ALARM $mode"
+            "cmd appops set --uid $uid SCHEDULE_EXACT_ALARM $mode"
         )
-        parcelFileDescriptor.close()
-        Thread.sleep(200)
+        try {
+            java.io.FileInputStream(parcelFileDescriptor.fileDescriptor).use { it.readBytes() }
+        } finally {
+            parcelFileDescriptor.close()
+        }
+        Thread.sleep(300)
     }
 
     private fun getActiveReminderPendingIntent(goalId: Long): android.app.PendingIntent? {
@@ -105,11 +110,17 @@ class NotificationsAndroidTest {
 
     @Test
     fun testFallbackAlarmPath_scheduleAndCancel_whenExactAlarmDenied() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) {
+            // On API < 31, exact alarms are unrestricted and SCHEDULE_EXACT_ALARM permission does not exist.
+            return
+        }
+
         try {
             setExactAlarmAppOp(false)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                assertFalse("Expected exact alarm permission to be denied/ignored", GoalReminderScheduler.canScheduleExact(context))
-            }
+            assertFalse(
+                "Expected exact alarm permission to be revoked/ignored",
+                GoalReminderScheduler.canScheduleExact(context)
+            )
 
             val goal = GoalTemplate(
                 id = 202,
@@ -122,13 +133,20 @@ class NotificationsAndroidTest {
                 reminderMinute = 15
             )
 
-            // Must not throw an exception when exact alarms are unavailable
+            // Must not throw an exception when exact alarms are unavailable; falls back gracefully
             GoalReminderScheduler.scheduleReminder(context, goal)
-            assertNotNull("PendingIntent should exist when fallback non-exact reminder is scheduled", getActiveReminderPendingIntent(202L))
+            assertNotNull(
+                "PendingIntent should exist when fallback non-exact reminder is scheduled",
+                getActiveReminderPendingIntent(202L)
+            )
 
             GoalReminderScheduler.cancelReminder(context, 202L)
-            org.junit.Assert.assertNull("PendingIntent should be null after cancellation", getActiveReminderPendingIntent(202L))
+            org.junit.Assert.assertNull(
+                "PendingIntent should be null after cancellation",
+                getActiveReminderPendingIntent(202L)
+            )
         } finally {
+            // Restore exact alarm permission to prevent contamination of subsequent tests
             setExactAlarmAppOp(true)
         }
     }
