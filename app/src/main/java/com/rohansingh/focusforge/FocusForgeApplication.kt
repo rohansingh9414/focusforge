@@ -7,6 +7,7 @@ import com.rohansingh.focusforge.data.repository.FocusSessionRepository
 import com.rohansingh.focusforge.data.repository.GoalRepository
 import com.rohansingh.focusforge.data.repository.RestrictedAppRepository
 import com.rohansingh.focusforge.data.repository.RewardRepository
+import com.rohansingh.focusforge.data.repository.StatisticsRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.BarterManager
 import com.rohansingh.focusforge.domain.managers.FocusSessionManager
@@ -43,6 +44,8 @@ class FocusForgeApplication : Application() {
         private set
     lateinit var focusSessionManager: FocusSessionManager
         private set
+    lateinit var statisticsRepository: StatisticsRepository
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -65,6 +68,15 @@ class FocusForgeApplication : Application() {
         barterManager = BarterManager(walletRepository, exchangeConfigRepository)
         restrictedAppRepository = RestrictedAppRepository(database.restrictedAppDao())
         focusSessionRepository = FocusSessionRepository(database.focusSessionDao())
+        statisticsRepository = StatisticsRepository(
+            goalLogDao = database.goalLogDao(),
+            redemptionLogDao = database.redemptionLogDao(),
+            xpLogDao = database.xpLogDao(),
+            goalStreakDao = database.goalStreakDao(),
+            focusSessionDao = database.focusSessionDao(),
+            screenTimeLogDao = database.screenTimeLogDao(),
+            walletDao = database.walletDao()
+        )
 
         val alarmScheduler = AndroidFocusSessionAlarmScheduler(this)
         focusSessionManager = FocusSessionManager(
@@ -72,6 +84,7 @@ class FocusForgeApplication : Application() {
             goalManager = goalManager,
             alarmScheduler = alarmScheduler
         )
+
 
         // Ensure unique daily WorkManager automation is scheduled
         DailyGrantScheduler.scheduleDailyGrant(this)

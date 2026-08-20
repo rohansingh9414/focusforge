@@ -325,6 +325,25 @@ class FocusSessionManagerTest {
             }
             return 0
         }
+
+        override fun getFocusSessionSummary(startTimeMs: Long, endTimeMs: Long): Flow<com.rohansingh.focusforge.data.dao.FocusSessionSummaryStat> = flow {
+            val completed = list.filter { it.status == "COMPLETED" && it.startedAtWallClockMs in startTimeMs..endTimeMs }
+            val totalMin = completed.sumOf { it.targetDurationMinutes }
+            val avgMin = if (completed.isNotEmpty()) totalMin.toDouble() / completed.size else 0.0
+            emit(com.rohansingh.focusforge.data.dao.FocusSessionSummaryStat(completed.size, totalMin, avgMin))
+        }
+
+        override fun getGoalFocusBreakdown(startTimeMs: Long, endTimeMs: Long): Flow<List<com.rohansingh.focusforge.data.dao.GoalFocusStat>> = flow {
+            val completed = list.filter { it.status == "COMPLETED" && it.startedAtWallClockMs in startTimeMs..endTimeMs }
+            val grouped = completed.groupBy { it.goalId }
+            emit(grouped.map { (goalId, sessions) ->
+                com.rohansingh.focusforge.data.dao.GoalFocusStat(goalId, sessions.first().snapshotGoalTitle, sessions.size, sessions.sumOf { it.targetDurationMinutes })
+            })
+        }
+
+        override fun getDailyFocusTrend(startTimeMs: Long, endTimeMs: Long): Flow<List<com.rohansingh.focusforge.data.dao.DailyFocusStat>> = flow {
+            emit(emptyList())
+        }
     }
 
     private class FakeGoalTemplateDao : GoalTemplateDao {
@@ -353,7 +372,20 @@ class FocusSessionManagerTest {
             logs.add(log)
             return log.id
         }
+        override fun getTotalCreditsEarned(startTimeMs: Long, endTimeMs: Long): Flow<Double> = flow {
+            emit(logs.filter { it.completedAt in startTimeMs..endTimeMs }.sumOf { it.creditsEarned })
+        }
+        override fun getTotalCompletionsCount(startTimeMs: Long, endTimeMs: Long): Flow<Int> = flow {
+            emit(logs.count { it.completedAt in startTimeMs..endTimeMs })
+        }
+        override fun getDailyCreditsEarned(startTimeMs: Long, endTimeMs: Long): Flow<List<com.rohansingh.focusforge.data.dao.DailyCreditsStat>> = flow {
+            emit(emptyList())
+        }
+        override fun getGoalPerformanceStats(startTimeMs: Long, endTimeMs: Long): Flow<List<com.rohansingh.focusforge.data.dao.GoalPerformanceStat>> = flow {
+            emit(emptyList())
+        }
     }
+
 
     private class FakeWalletDao : WalletDao {
         var wallet: Wallet? = null

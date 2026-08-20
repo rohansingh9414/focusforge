@@ -15,6 +15,7 @@ import com.rohansingh.focusforge.data.dao.RestrictedAppDao
 import com.rohansingh.focusforge.data.dao.RewardTemplateDao
 import com.rohansingh.focusforge.data.dao.WalletDao
 import com.rohansingh.focusforge.data.dao.XpLogDao
+import com.rohansingh.focusforge.data.dao.ScreenTimeLogDao
 import com.rohansingh.focusforge.data.entities.FocusSessionEntity
 import com.rohansingh.focusforge.data.entities.GoalLog
 import com.rohansingh.focusforge.data.entities.GoalStreak
@@ -22,6 +23,7 @@ import com.rohansingh.focusforge.data.entities.GoalTemplate
 import com.rohansingh.focusforge.data.entities.RedemptionLog
 import com.rohansingh.focusforge.data.entities.RestrictedApp
 import com.rohansingh.focusforge.data.entities.RewardTemplate
+import com.rohansingh.focusforge.data.entities.ScreenTimeLog
 import com.rohansingh.focusforge.data.entities.Wallet
 import com.rohansingh.focusforge.data.entities.XpLog
 
@@ -38,9 +40,10 @@ import com.rohansingh.focusforge.data.entities.XpLog
         RestrictedApp::class,
         FocusSessionEntity::class,
         XpLog::class,
-        GoalStreak::class
+        GoalStreak::class,
+        ScreenTimeLog::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -54,6 +57,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun focusSessionDao(): FocusSessionDao
     abstract fun xpLogDao(): XpLogDao
     abstract fun goalStreakDao(): GoalStreakDao
+    abstract fun screenTimeLogDao(): ScreenTimeLogDao
 
     companion object {
         const val DATABASE_NAME = "focusforge.db"
@@ -87,6 +91,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS screen_time_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        packageName TEXT NOT NULL,
+                        appName TEXT,
+                        minutesConsumed INTEGER NOT NULL,
+                        consumedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_screen_time_logs_packageName ON screen_time_logs(packageName)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_screen_time_logs_consumedAt ON screen_time_logs(consumedAt)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -97,7 +117,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                    .addMigrations(MIGRATION_4_5)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
@@ -106,3 +126,4 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
+

@@ -258,6 +258,18 @@ class GamificationGoalManagerTest {
             logs.add(log)
             return log.id
         }
+        override fun getTotalCreditsEarned(startTimeMs: Long, endTimeMs: Long): Flow<Double> = flow {
+            emit(logs.filter { it.completedAt in startTimeMs..endTimeMs }.sumOf { it.creditsEarned })
+        }
+        override fun getTotalCompletionsCount(startTimeMs: Long, endTimeMs: Long): Flow<Int> = flow {
+            emit(logs.count { it.completedAt in startTimeMs..endTimeMs })
+        }
+        override fun getDailyCreditsEarned(startTimeMs: Long, endTimeMs: Long): Flow<List<com.rohansingh.focusforge.data.dao.DailyCreditsStat>> = flow {
+            emit(emptyList())
+        }
+        override fun getGoalPerformanceStats(startTimeMs: Long, endTimeMs: Long): Flow<List<com.rohansingh.focusforge.data.dao.GoalPerformanceStat>> = flow {
+            emit(emptyList())
+        }
     }
 
     private class FakeWalletDao : WalletDao {
@@ -321,9 +333,16 @@ class GamificationGoalManagerTest {
         }
 
         override suspend fun deleteXpLogsForGoal(goalId: Long): Int {
-            val count = logs.count { it.goalTemplateId == goalId }
-            logs.removeAll { it.goalTemplateId == goalId }
-            return count
+            val removed = logs.removeAll { it.goalTemplateId == goalId }
+            return if (removed) 1 else 0
+        }
+
+        override fun getTotalXpEarned(startTimeMs: Long, endTimeMs: Long): Flow<Long> = flow {
+            emit(logs.filter { it.completedAt in startTimeMs..endTimeMs }.sumOf { it.xpEarned })
+        }
+
+        override fun getDailyXpEarned(startTimeMs: Long, endTimeMs: Long): Flow<List<com.rohansingh.focusforge.data.dao.DailyXpStat>> = flow {
+            emit(emptyList())
         }
     }
 }

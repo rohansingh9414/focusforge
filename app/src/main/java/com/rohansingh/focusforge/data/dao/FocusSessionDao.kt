@@ -37,4 +37,89 @@ interface FocusSessionDao {
 
     @Query("UPDATE focus_sessions SET status = 'COMPLETED', completedAtWallClockMs = :completedAt WHERE id = :id")
     suspend fun markSessionCompleted(id: Long, completedAt: Long): Int
+
+    @Query("""
+        SELECT 
+            COUNT(*) AS completedSessionsCount,
+            COALESCE(SUM(
+                CASE 
+                    WHEN completedAtWallClockMs IS NOT NULL AND completedAtWallClockMs > startedAtWallClockMs 
+                    THEN CAST((completedAtWallClockMs - startedAtWallClockMs) / 60000 AS INTEGER)
+                    ELSE targetDurationMinutes 
+                END
+            ), 0) AS totalFocusMinutes,
+            COALESCE(AVG(
+                CASE 
+                    WHEN completedAtWallClockMs IS NOT NULL AND completedAtWallClockMs > startedAtWallClockMs 
+                    THEN CAST((completedAtWallClockMs - startedAtWallClockMs) / 60000 AS REAL)
+                    ELSE CAST(targetDurationMinutes AS REAL)
+                END
+            ), 0.0) AS avgDurationMinutes
+        FROM focus_sessions
+        WHERE status = 'COMPLETED' 
+          AND startedAtWallClockMs >= :startTimeMs 
+          AND startedAtWallClockMs <= :endTimeMs
+    """)
+    fun getFocusSessionSummary(startTimeMs: Long, endTimeMs: Long): Flow<FocusSessionSummaryStat>
+
+    @Query("""
+        SELECT 
+            goalId,
+            snapshotGoalTitle AS goalTitle,
+            COUNT(id) AS sessionCount,
+            COALESCE(SUM(
+                CASE 
+                    WHEN completedAtWallClockMs IS NOT NULL AND completedAtWallClockMs > startedAtWallClockMs 
+                    THEN CAST((completedAtWallClockMs - startedAtWallClockMs) / 60000 AS INTEGER)
+                    ELSE targetDurationMinutes 
+                END
+            ), 0) AS totalFocusMinutes
+        FROM focus_sessions
+        WHERE status = 'COMPLETED' 
+          AND startedAtWallClockMs >= :startTimeMs 
+          AND startedAtWallClockMs <= :endTimeMs
+        GROUP BY goalId
+        ORDER BY totalFocusMinutes DESC
+    """)
+    fun getGoalFocusBreakdown(startTimeMs: Long, endTimeMs: Long): Flow<List<GoalFocusStat>>
+
+    @Query("""
+        SELECT 
+            DATE(startedAtWallClockMs / 1000, 'unixepoch', 'localtime') AS dateString,
+            COALESCE(SUM(
+                CASE 
+                    WHEN completedAtWallClockMs IS NOT NULL AND completedAtWallClockMs > startedAtWallClockMs 
+                    THEN CAST((completedAtWallClockMs - startedAtWallClockMs) / 60000 AS INTEGER)
+                    ELSE targetDurationMinutes 
+                END
+            ), 0) AS totalMinutes,
+            COUNT(id) AS sessionCount
+        FROM focus_sessions
+        WHERE status = 'COMPLETED'
+          AND startedAtWallClockMs >= :startTimeMs 
+          AND startedAtWallClockMs <= :endTimeMs
+        GROUP BY dateString
+        ORDER BY dateString ASC
+    """)
+    fun getDailyFocusTrend(startTimeMs: Long, endTimeMs: Long): Flow<List<DailyFocusStat>>
 }
+
+data class FocusSessionSummaryStat(
+    val completedSessionsCount: Int,
+    val totalFocusMinutes: Int,
+    val avgDurationMinutes: Double
+)
+
+data class GoalFocusStat(
+    val goalId: Long,
+    val goalTitle: String,
+    val sessionCount: Int,
+    val totalFocusMinutes: Int
+)
+
+data class DailyFocusStat(
+    val dateString: String,
+    val totalMinutes: Int,
+    val sessionCount: Int
+)
+

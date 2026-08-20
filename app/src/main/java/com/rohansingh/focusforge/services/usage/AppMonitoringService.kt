@@ -68,8 +68,10 @@ class AppMonitoringService : Service() {
         focusSessionRepository = app.focusSessionRepository
         screenTimeManager = ScreenTimeManager(
             walletRepository = walletRepository,
-            restrictedAppRepository = restrictedAppRepository
+            restrictedAppRepository = restrictedAppRepository,
+            screenTimeLogDao = app.database.screenTimeLogDao()
         )
+
 
         // Authoritative Room observation for active FocusSession
         serviceScope.launch {
@@ -223,7 +225,9 @@ class AppMonitoringService : Service() {
     private fun stopMonitoringService() {
         Log.d(TAG, "Stopping AppMonitoringService")
         detector.stopMonitoring()
-        screenTimeManager.resetTrackingState()
+        serviceScope.launch {
+            screenTimeManager.flushActiveSession()
+        }
         _isRunning.value = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -233,10 +237,13 @@ class AppMonitoringService : Service() {
         super.onDestroy()
         Log.d(TAG, "onDestroy: AppMonitoringService destroyed")
         detector.stopMonitoring()
-        screenTimeManager.resetTrackingState()
+        serviceScope.launch {
+            screenTimeManager.flushActiveSession()
+        }
         _isRunning.value = false
         serviceScope.cancel()
     }
+
 
     override fun onBind(intent: Intent?): IBinder? = null
 

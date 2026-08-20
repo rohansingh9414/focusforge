@@ -25,6 +25,11 @@ open class RestrictedAppRepository(
         return app?.isRestricted == true
     }
 
+    open suspend fun getAppName(packageName: String): String? {
+        return restrictedAppDao.getRestrictedApp(packageName)?.appName
+    }
+
+
     open suspend fun setAppRestricted(packageName: String, appName: String, isRestricted: Boolean) {
         restrictedAppDao.insertOrUpdate(
             RestrictedApp(
