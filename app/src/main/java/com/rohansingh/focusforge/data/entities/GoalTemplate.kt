@@ -14,5 +14,8 @@ data class GoalTemplate(
     val unit: String,
     val creditRate: Double,
     val dailyCap: Double = 0.0,
-    val recurring: Boolean = true
+    val recurring: Boolean = true,
+    val reminderEnabled: Boolean = false,
+    val reminderHour: Int = 20,
+    val reminderMinute: Int = 0
 )

@@ -19,6 +19,7 @@ import com.rohansingh.focusforge.data.repository.FocusSessionRepository
 import com.rohansingh.focusforge.data.repository.RestrictedAppRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.ScreenTimeManager
+import com.rohansingh.focusforge.services.notifications.FocusForgeNotificationManager
 import com.rohansingh.focusforge.domain.models.BlockerReason
 import com.rohansingh.focusforge.domain.models.FocusSessionStatus
 import com.rohansingh.focusforge.ui.blocker.BlockerActivity
@@ -166,6 +167,13 @@ class AppMonitoringService : Service() {
                     isInteractive = isInteractive,
                     currentTimeMs = now
                 )
+
+                if (status.shouldWarnLowScreenTime) {
+                    FocusForgeNotificationManager.showLowScreenTimeNotification(
+                        context = applicationContext,
+                        remainingMinutes = status.remainingScreenTimeMinutes
+                    )
+                }
 
                 if (!status.isRestricted || !status.shouldBlock) {
                     lastBlockedPackage = null

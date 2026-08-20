@@ -15,6 +15,7 @@ import com.rohansingh.focusforge.domain.managers.GoalManager
 import com.rohansingh.focusforge.domain.managers.RewardManager
 import com.rohansingh.focusforge.services.alarm.AndroidFocusSessionAlarmScheduler
 import com.rohansingh.focusforge.services.daily.DailyGrantScheduler
+import com.rohansingh.focusforge.services.notifications.FocusForgeNotificationManager
 
 /**
  * Application class for FocusForge.
@@ -51,6 +52,8 @@ class FocusForgeApplication : Application() {
         super.onCreate()
         instance = this
 
+        FocusForgeNotificationManager.createNotificationChannels(this)
+
         database = AppDatabase.getDatabase(this)
         walletRepository = WalletRepository(database.walletDao())
         exchangeConfigRepository = ExchangeConfigRepository(this)
@@ -60,7 +63,8 @@ class FocusForgeApplication : Application() {
             goalLogDao = database.goalLogDao(),
             goalStreakDao = database.goalStreakDao(),
             xpLogDao = database.xpLogDao(),
-            walletDao = database.walletDao()
+            walletDao = database.walletDao(),
+            context = this
         )
         goalManager = GoalManager(goalRepository)
         rewardRepository = RewardRepository(database.rewardTemplateDao(), database.redemptionLogDao())

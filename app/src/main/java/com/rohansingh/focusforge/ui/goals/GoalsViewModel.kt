@@ -164,7 +164,10 @@ class GoalsViewModel(
         unit: String,
         creditRate: Double,
         dailyCap: Double,
-        recurring: Boolean
+        recurring: Boolean,
+        reminderEnabled: Boolean = false,
+        reminderHour: Int = 20,
+        reminderMinute: Int = 0
     ) {
         viewModelScope.launch {
             if (title.isBlank() || unit.isBlank() || creditRate <= 0.0) {
@@ -183,7 +186,10 @@ class GoalsViewModel(
                 unit = unit.trim(),
                 creditRate = creditRate,
                 dailyCap = if (dailyCap < 0.0) 0.0 else dailyCap,
-                recurring = recurring
+                recurring = recurring,
+                reminderEnabled = reminderEnabled && recurring,
+                reminderHour = reminderHour.coerceIn(0, 23),
+                reminderMinute = reminderMinute.coerceIn(0, 59)
             )
 
             if (id == 0L) {

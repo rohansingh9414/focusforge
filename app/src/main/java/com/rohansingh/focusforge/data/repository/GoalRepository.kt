@@ -1,5 +1,6 @@
 package com.rohansingh.focusforge.data.repository
 
+import android.content.Context
 import androidx.room.withTransaction
 import com.rohansingh.focusforge.data.dao.GoalLogDao
 import com.rohansingh.focusforge.data.dao.GoalStreakDao
@@ -12,6 +13,7 @@ import com.rohansingh.focusforge.data.entities.GoalStreak
 import com.rohansingh.focusforge.data.entities.GoalTemplate
 import com.rohansingh.focusforge.data.entities.Wallet
 import com.rohansingh.focusforge.data.entities.XpLog
+import com.rohansingh.focusforge.services.notifications.GoalReminderScheduler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
@@ -24,7 +26,8 @@ class GoalRepository(
     private val goalLogDao: GoalLogDao,
     private val goalStreakDao: GoalStreakDao? = null,
     private val xpLogDao: XpLogDao? = null,
-    private val walletDao: WalletDao? = null
+    private val walletDao: WalletDao? = null,
+    private val context: Context? = null
 ) {
 
     val allGoalTemplates: Flow<List<GoalTemplate>> = goalTemplateDao.getAllGoalTemplates()
@@ -35,15 +38,31 @@ class GoalRepository(
     }
 
     suspend fun insertGoalTemplate(goalTemplate: GoalTemplate): Long {
-        return goalTemplateDao.insertGoalTemplate(goalTemplate)
+        val id = goalTemplateDao.insertGoalTemplate(goalTemplate)
+        if (context != null && goalTemplate.reminderEnabled && goalTemplate.recurring) {
+            GoalReminderScheduler.scheduleReminder(context, goalTemplate.copy(id = id))
+        }
+        return id
     }
 
     suspend fun updateGoalTemplate(goalTemplate: GoalTemplate): Int {
-        return goalTemplateDao.updateGoalTemplate(goalTemplate)
+        val count = goalTemplateDao.updateGoalTemplate(goalTemplate)
+        if (context != null) {
+            if (goalTemplate.reminderEnabled && goalTemplate.recurring) {
+                GoalReminderScheduler.scheduleReminder(context, goalTemplate)
+            } else {
+                GoalReminderScheduler.cancelReminder(context, goalTemplate.id)
+            }
+        }
+        return count
     }
 
     suspend fun deleteGoalTemplate(goalTemplate: GoalTemplate): Int {
-        return goalTemplateDao.deleteGoalTemplate(goalTemplate)
+        val count = goalTemplateDao.deleteGoalTemplate(goalTemplate)
+        if (context != null) {
+            GoalReminderScheduler.cancelReminder(context, goalTemplate.id)
+        }
+        return count
     }
 
     suspend fun insertGoalLog(goalLog: GoalLog): Long {

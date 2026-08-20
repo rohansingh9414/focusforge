@@ -26,10 +26,12 @@ class ForegroundAppDetectorAndroidTest {
         context = ApplicationProvider.getApplicationContext()
         detector = ForegroundAppDetector(context)
 
-        // Ensure usage access permission is granted via shell command
+        // Ensure usage access and notification permissions are granted via shell command
         val packageName = context.packageName
         InstrumentationRegistry.getInstrumentation().uiAutomation
             .executeShellCommand("appops set $packageName GET_USAGE_STATS allow")
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .executeShellCommand("pm grant $packageName android.permission.POST_NOTIFICATIONS")
         SystemClock.sleep(500)
     }
 

@@ -13,7 +13,8 @@ data class ScreenTimeStatus(
     val isInteractive: Boolean,
     val remainingScreenTimeMinutes: Int,
     val shouldBlock: Boolean,
-    val minutesDeducted: Int = 0
+    val minutesDeducted: Int = 0,
+    val shouldWarnLowScreenTime: Boolean = false
 )
 
 /**
@@ -35,6 +36,11 @@ class ScreenTimeManager(
     private var lastTickTimestamp: Long = 0L
     private var accumulatedRestrictedTimeMs: Long = 0L
     private var sessionDeductedMinutes: Int = 0
+    private var hasWarnedLowScreenTime: Boolean = false
+
+    companion object {
+        const val LOW_SCREEN_TIME_THRESHOLD_MINUTES: Int = 15
+    }
 
     /**
      * Ends the currently active continuous foreground session and writes
@@ -72,6 +78,11 @@ class ScreenTimeManager(
     ): ScreenTimeStatus = mutex.withLock {
         val wallet = walletRepository.getWalletOnce()
         val currentMinutes = wallet?.screenTimeMinutes ?: 0
+
+        // If screen time is replenished above threshold, re-arm warning latch
+        if (currentMinutes > LOW_SCREEN_TIME_THRESHOLD_MINUTES) {
+            hasWarnedLowScreenTime = false
+        }
 
         // 1. If screen is non-interactive (off) or no package detected, end session
         if (!isInteractive || currentPackage == null) {
@@ -135,12 +146,19 @@ class ScreenTimeManager(
             } else {
                 resetTrackingState()
             }
+            val shouldWarn = if (!hasWarnedLowScreenTime) {
+                hasWarnedLowScreenTime = true
+                true
+            } else {
+                false
+            }
             return ScreenTimeStatus(
                 currentPackage = currentPackage,
                 isRestricted = true,
                 isInteractive = true,
                 remainingScreenTimeMinutes = 0,
-                shouldBlock = true
+                shouldBlock = true,
+                shouldWarnLowScreenTime = shouldWarn
             )
         }
 
@@ -185,13 +203,24 @@ class ScreenTimeManager(
             endAndLogActiveSession(currentTimeMs)
         }
 
+        val shouldWarnLow = if (newMinutes <= LOW_SCREEN_TIME_THRESHOLD_MINUTES && !hasWarnedLowScreenTime) {
+            hasWarnedLowScreenTime = true
+            true
+        } else if (newMinutes > LOW_SCREEN_TIME_THRESHOLD_MINUTES) {
+            hasWarnedLowScreenTime = false
+            false
+        } else {
+            false
+        }
+
         return ScreenTimeStatus(
             currentPackage = currentPackage,
             isRestricted = true,
             isInteractive = true,
             remainingScreenTimeMinutes = newMinutes,
             shouldBlock = shouldBlock,
-            minutesDeducted = deductedCount
+            minutesDeducted = deductedCount,
+            shouldWarnLowScreenTime = shouldWarnLow
         )
     }
 

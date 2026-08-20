@@ -64,6 +64,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".services.receiver.GoalReminderReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".services.receiver.BootCompletedReceiver"
             android:exported="true">
             <intent-filter>

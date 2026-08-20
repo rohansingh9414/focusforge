@@ -170,8 +170,8 @@ fun GoalsScreen(
         AddEditGoalDialog(
             goal = uiState.editingGoal,
             onDismiss = { viewModel.closeAddEditGoalDialog() },
-            onSave = { id, title, unit, rate, cap, recurring ->
-                viewModel.saveGoal(id, title, unit, rate, cap, recurring)
+            onSave = { id, title, unit, rate, cap, recurring, reminderEnabled, reminderHour, reminderMinute ->
+                viewModel.saveGoal(id, title, unit, rate, cap, recurring, reminderEnabled, reminderHour, reminderMinute)
             }
         )
     }
@@ -331,13 +331,16 @@ private fun GoalItemCard(
 private fun AddEditGoalDialog(
     goal: GoalTemplate?,
     onDismiss: () -> Unit,
-    onSave: (id: Long, title: String, unit: String, creditRate: Double, dailyCap: Double, recurring: Boolean) -> Unit
+    onSave: (id: Long, title: String, unit: String, creditRate: Double, dailyCap: Double, recurring: Boolean, reminderEnabled: Boolean, reminderHour: Int, reminderMinute: Int) -> Unit
 ) {
     var title by remember { mutableStateOf(goal?.title ?: "") }
     var unit by remember { mutableStateOf(goal?.unit ?: "") }
     var creditRateStr by remember { mutableStateOf(goal?.creditRate?.toString() ?: "1.0") }
     var dailyCapStr by remember { mutableStateOf(if (goal != null && goal.dailyCap > 0.0) goal.dailyCap.toString() else "") }
     var recurring by remember { mutableStateOf(goal?.recurring ?: true) }
+    var reminderEnabled by remember { mutableStateOf(goal?.reminderEnabled ?: false) }
+    var reminderHourStr by remember { mutableStateOf(goal?.reminderHour?.toString() ?: "20") }
+    var reminderMinuteStr by remember { mutableStateOf(goal?.reminderMinute?.let { if (it < 10) "0$it" else it.toString() } ?: "00") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -389,10 +392,54 @@ private fun AddEditGoalDialog(
                 ) {
                     Checkbox(
                         checked = recurring,
-                        onCheckedChange = { recurring = it }
+                        onCheckedChange = { 
+                            recurring = it
+                            if (!it) reminderEnabled = false
+                        }
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Recurring daily goal")
+                }
+
+                // Daily Reminder option only visible/active if recurring == true
+                if (recurring) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Checkbox(
+                            checked = reminderEnabled,
+                            onCheckedChange = { reminderEnabled = it }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Daily Reminder")
+                    }
+
+                    if (reminderEnabled) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = reminderHourStr,
+                                onValueChange = { reminderHourStr = it.take(2) },
+                                label = { Text("Hour (0-23)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(":", style = MaterialTheme.typography.titleLarge)
+                            OutlinedTextField(
+                                value = reminderMinuteStr,
+                                onValueChange = { reminderMinuteStr = it.take(2) },
+                                label = { Text("Min (0-59)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -401,7 +448,9 @@ private fun AddEditGoalDialog(
                 onClick = {
                     val rate = creditRateStr.toDoubleOrNull() ?: 1.0
                     val cap = dailyCapStr.toDoubleOrNull() ?: 0.0
-                    onSave(goal?.id ?: 0L, title, unit, rate, cap, recurring)
+                    val hour = reminderHourStr.toIntOrNull()?.coerceIn(0, 23) ?: 20
+                    val minute = reminderMinuteStr.toIntOrNull()?.coerceIn(0, 59) ?: 0
+                    onSave(goal?.id ?: 0L, title, unit, rate, cap, recurring, reminderEnabled && recurring, hour, minute)
                 }
             ) {
                 Text("Save")

@@ -18,6 +18,9 @@ interface GoalTemplateDao {
     @Query("SELECT * FROM goal_templates ORDER BY id DESC")
     fun getAllGoalTemplates(): Flow<List<GoalTemplate>>
 
+    @Query("SELECT * FROM goal_templates ORDER BY id DESC")
+    suspend fun getAllGoalTemplatesList(): List<GoalTemplate>
+
     @Query("SELECT * FROM goal_templates WHERE id = :id")
     suspend fun getGoalTemplateById(id: Long): GoalTemplate?
 

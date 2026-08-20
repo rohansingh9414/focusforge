@@ -43,7 +43,7 @@ class FocusSessionCompletionReceiver : BroadcastReceiver() {
             } catch (e: Exception) {
                 Log.e(TAG, "Error handling session completion for #$sessionId: ${e.message}", e)
             } finally {
-                pendingResult.finish()
+                pendingResult?.finish()
             }
         }
     }

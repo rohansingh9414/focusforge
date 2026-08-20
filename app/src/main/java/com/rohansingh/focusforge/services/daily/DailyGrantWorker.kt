@@ -8,6 +8,7 @@ import com.rohansingh.focusforge.data.database.AppDatabase
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.DailyGrantManager
 import com.rohansingh.focusforge.domain.models.DailyGrantResult
+import com.rohansingh.focusforge.services.notifications.FocusForgeNotificationManager
 
 /**
  * Background WorkManager worker responsible for triggering the daily grant domain operation.
@@ -38,6 +39,11 @@ class DailyGrantWorker(
                     when (result) {
                         is DailyGrantResult.Applied -> {
                             Log.i(TAG, "Daily grant applied successfully for ${result.date}: +₹${result.rupeeGranted}, +${result.screenTimeGranted} min screen time")
+                            FocusForgeNotificationManager.showDailyGrantNotification(
+                                context = applicationContext,
+                                rupeesGranted = result.rupeeGranted,
+                                screenTimeGranted = result.screenTimeGranted
+                            )
                         }
                         is DailyGrantResult.AlreadyApplied -> {
                             Log.i(TAG, "Daily grant already applied for ${result.date}. Skipping.")

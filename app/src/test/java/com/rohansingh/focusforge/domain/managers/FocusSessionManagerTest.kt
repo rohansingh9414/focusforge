@@ -349,6 +349,7 @@ class FocusSessionManagerTest {
     private class FakeGoalTemplateDao : GoalTemplateDao {
         private val list = mutableListOf<GoalTemplate>()
         override fun getAllGoalTemplates(): Flow<List<GoalTemplate>> = flow { emit(list.toList()) }
+        override suspend fun getAllGoalTemplatesList(): List<GoalTemplate> = list.toList()
         override suspend fun getGoalTemplateById(id: Long): GoalTemplate? = list.find { it.id == id }
         override suspend fun insertGoalTemplate(goal: GoalTemplate): Long {
             list.add(goal)
