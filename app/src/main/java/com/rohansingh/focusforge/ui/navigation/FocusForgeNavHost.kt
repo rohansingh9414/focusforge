@@ -9,6 +9,7 @@ import com.rohansingh.focusforge.data.repository.ExchangeConfigRepository
 import com.rohansingh.focusforge.data.repository.GoalRepository
 import com.rohansingh.focusforge.data.repository.RestrictedAppRepository
 import com.rohansingh.focusforge.data.repository.RewardRepository
+import com.rohansingh.focusforge.data.repository.ThemeRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.BarterManager
 import com.rohansingh.focusforge.domain.managers.FocusSessionManager
@@ -30,6 +31,7 @@ fun FocusForgeNavHost(
     rewardRepository: RewardRepository,
     rewardManager: RewardManager,
     exchangeConfigRepository: ExchangeConfigRepository,
+    themeRepository: ThemeRepository,
     barterManager: BarterManager,
     restrictedAppRepository: RestrictedAppRepository,
     focusSessionManager: FocusSessionManager,
@@ -63,7 +65,8 @@ fun FocusForgeNavHost(
             SettingsScreen(
                 walletRepository = walletRepository,
                 exchangeConfigRepository = exchangeConfigRepository,
-                barterManager = barterManager
+                barterManager = barterManager,
+                themeRepository = themeRepository
             )
         }
     }

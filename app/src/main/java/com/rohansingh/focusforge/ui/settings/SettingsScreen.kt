@@ -32,21 +32,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rohansingh.focusforge.data.repository.ExchangeConfigRepository
+import com.rohansingh.focusforge.data.repository.ThemeRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.BarterManager
 import com.rohansingh.focusforge.domain.models.ExchangeDirection
+import com.rohansingh.focusforge.domain.models.ThemeMode
 
 @Composable
 fun SettingsScreen(
     walletRepository: WalletRepository,
     exchangeConfigRepository: ExchangeConfigRepository,
     barterManager: BarterManager,
+    themeRepository: ThemeRepository,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModel.Factory(walletRepository, exchangeConfigRepository, barterManager)
+        factory = SettingsViewModel.Factory(walletRepository, exchangeConfigRepository, barterManager, themeRepository)
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -78,6 +82,51 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
+
+            // Card 0: Appearance (Theme)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "Appearance",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = uiState.themeMode == ThemeMode.SYSTEM,
+                            onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
+                            label = { Text("System", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = uiState.themeMode == ThemeMode.LIGHT,
+                            onClick = { viewModel.setThemeMode(ThemeMode.LIGHT) },
+                            label = { Text("Light", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = uiState.themeMode == ThemeMode.DARK,
+                            onClick = { viewModel.setThemeMode(ThemeMode.DARK) },
+                            label = { Text("Dark", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
 
             // Card 1: Currency Exchange (Barter)
             Card(

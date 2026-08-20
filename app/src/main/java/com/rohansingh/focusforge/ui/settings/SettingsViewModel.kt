@@ -5,12 +5,14 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.rohansingh.focusforge.data.entities.Wallet
 import com.rohansingh.focusforge.data.repository.ExchangeConfigRepository
+import com.rohansingh.focusforge.data.repository.ThemeRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.BarterManager
 import com.rohansingh.focusforge.domain.models.ExchangeConfig
 import com.rohansingh.focusforge.domain.models.ExchangeDirection
 import com.rohansingh.focusforge.domain.models.ExchangePreview
 import com.rohansingh.focusforge.domain.models.ExchangeResult
+import com.rohansingh.focusforge.domain.models.ThemeMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,13 +28,15 @@ data class SettingsUiState(
     val preview: ExchangePreview? = null,
     val creditsPerRupeeInput: String = "1.0",
     val exchangeFeePercentInput: String = "0.0",
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val userMessage: String? = null
 )
 
 class SettingsViewModel(
     private val walletRepository: WalletRepository,
     private val exchangeConfigRepository: ExchangeConfigRepository,
-    private val barterManager: BarterManager
+    private val barterManager: BarterManager,
+    private val themeRepository: ThemeRepository
 ) : ViewModel() {
 
     private val _direction = MutableStateFlow(ExchangeDirection.RUPEES_TO_CREDITS)
@@ -46,6 +50,7 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = combine(
         walletRepository.wallet,
         exchangeConfigRepository.exchangeConfig,
+        themeRepository.themeMode,
         _direction,
         _amountInput,
         _creditsPerRupeeInput,
@@ -54,11 +59,12 @@ class SettingsViewModel(
     ) { flows ->
         val wallet = (flows[0] as? Wallet) ?: Wallet()
         val config = flows[1] as ExchangeConfig
-        val direction = flows[2] as ExchangeDirection
-        val amountInput = flows[3] as String
-        val rateInput = flows[4] as String
-        val feeInput = flows[5] as String
-        val message = flows[6] as? String
+        val themeMode = flows[2] as ThemeMode
+        val direction = flows[3] as ExchangeDirection
+        val amountInput = flows[4] as String
+        val rateInput = flows[5] as String
+        val feeInput = flows[6] as String
+        val message = flows[7] as? String
 
         if (!hasInitializedConfigInputs) {
             _creditsPerRupeeInput.value = config.creditsPerRupee.toString()
@@ -81,6 +87,7 @@ class SettingsViewModel(
             preview = preview,
             creditsPerRupeeInput = rateInput,
             exchangeFeePercentInput = feeInput,
+            themeMode = themeMode,
             userMessage = message
         )
     }.stateIn(
@@ -92,6 +99,12 @@ class SettingsViewModel(
     init {
         viewModelScope.launch {
             walletRepository.ensureWalletInitialized()
+        }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            themeRepository.updateThemeMode(mode)
         }
     }
 
@@ -178,11 +191,12 @@ class SettingsViewModel(
     class Factory(
         private val walletRepository: WalletRepository,
         private val exchangeConfigRepository: ExchangeConfigRepository,
-        private val barterManager: BarterManager
+        private val barterManager: BarterManager,
+        private val themeRepository: ThemeRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return SettingsViewModel(walletRepository, exchangeConfigRepository, barterManager) as T
+            return SettingsViewModel(walletRepository, exchangeConfigRepository, barterManager, themeRepository) as T
         }
     }
 }

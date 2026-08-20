@@ -5,8 +5,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.rohansingh.focusforge.FocusForgeApplication
 import com.rohansingh.focusforge.MainActivity
 import com.rohansingh.focusforge.domain.models.BlockerReason
+import com.rohansingh.focusforge.domain.models.ThemeMode
 import com.rohansingh.focusforge.ui.theme.FocusForgeTheme
 
 /**
@@ -26,8 +31,18 @@ class BlockerActivity : ComponentActivity() {
 
         extractIntentExtras(intent)
 
+        val app = application as? FocusForgeApplication ?: FocusForgeApplication.instance
+        val themeRepository = app.themeRepository
+
         setContent {
-            FocusForgeTheme {
+            val themeMode by themeRepository.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
+            val darkTheme = when (themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+
+            FocusForgeTheme(darkTheme = darkTheme) {
                 BlockerScreen(
                     blockedPackageName = blockedPackage,
                     reason = blockerReason,

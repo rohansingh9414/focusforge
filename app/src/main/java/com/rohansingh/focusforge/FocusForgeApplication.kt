@@ -8,6 +8,7 @@ import com.rohansingh.focusforge.data.repository.GoalRepository
 import com.rohansingh.focusforge.data.repository.RestrictedAppRepository
 import com.rohansingh.focusforge.data.repository.RewardRepository
 import com.rohansingh.focusforge.data.repository.StatisticsRepository
+import com.rohansingh.focusforge.data.repository.ThemeRepository
 import com.rohansingh.focusforge.data.repository.WalletRepository
 import com.rohansingh.focusforge.domain.managers.BarterManager
 import com.rohansingh.focusforge.domain.managers.FocusSessionManager
@@ -47,6 +48,8 @@ class FocusForgeApplication : Application() {
         private set
     lateinit var statisticsRepository: StatisticsRepository
         private set
+    lateinit var themeRepository: ThemeRepository
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -57,6 +60,7 @@ class FocusForgeApplication : Application() {
         database = AppDatabase.getDatabase(this)
         walletRepository = WalletRepository(database.walletDao())
         exchangeConfigRepository = ExchangeConfigRepository(this)
+        themeRepository = ThemeRepository(this)
         goalRepository = GoalRepository(
             database = database,
             goalTemplateDao = database.goalTemplateDao(),
